@@ -41,7 +41,7 @@ Or install `app/build/outputs/apk/debug/app-debug.apk` with `adb install -r`. A 
 
 No ROM is included. On first run, use the in-game extractor's ROM picker to select a legally obtained Ocarina of Time ROM. Android's Storage Access Framework grants access to that one file; the app copies it into its app-private files directory so the extractor can find it on later launches, and does not request broad storage permissions. App-specific external files storage is used when available, with an internal-files fallback if Android cannot provide it; temporary extraction data is kept in the app-private cache.
 
-The on-screen controls can be hidden with **T** and the menu can be opened with **M**. Android Back also toggles the in-game menu. A physical controller is supported through SDL2. The touch buttons follow the project's default keyboard mappings; the left analog area acts as the left stick.
+The on-screen controls can be hidden with **T** and the menu can be opened with **M**. Android Back also toggles the in-game menu. Open **Settings > Controls > Android Touch Controls** to add custom buttons, choose a keyboard key for each, and drag or resize the on-screen controls; the layout is saved with the game settings. A physical controller is supported through SDL2. The left analog area acts as the left stick.
 
 ## Notes
 
