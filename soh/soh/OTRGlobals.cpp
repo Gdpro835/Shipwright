@@ -74,6 +74,9 @@
 #else
 #include <SDL2/SDL_scancode.h>
 #endif
+#ifdef __ANDROID__
+#include <SDL2/SDL_thread.h>
+#endif
 
 #ifdef __SWITCH__
 #include <port/switch/SwitchImpl.h>
@@ -1090,6 +1093,14 @@ extern "C" int AudioPlayer_GetDesiredBuffered(void);
 std::unordered_map<std::string, ExtensionEntry> ExtensionCache;
 
 void OTRAudio_Thread() {
+#ifdef __ANDROID__
+    // This worker produces samples for SDL's AudioTrack output. Keep it responsive
+    // when the renderer is busy so the device queue is less likely to underrun.
+    if (SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH) != 0) {
+        SPDLOG_WARN("Could not raise audio synthesis thread priority: {}", SDL_GetError());
+    }
+#endif
+
     while (audio.running) {
         {
             std::unique_lock<std::mutex> Lock(audio.mutex);

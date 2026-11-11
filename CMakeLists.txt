@@ -143,6 +143,13 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 set(CMAKE_OBJCXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 endif()
 
+if(ANDROID)
+    # Keep symbols and assertions in the playable debug APK, but optimize its NDK code.
+    # CMake's unoptimized Debug defaults can otherwise starve rendering and audio on phones.
+    string(APPEND CMAKE_C_FLAGS_DEBUG " -O2")
+    string(APPEND CMAKE_CXX_FLAGS_DEBUG " -O2")
+endif()
+
 # Enforce strict, deterministic IEEE-754 floating-point to match N64 (MIPS) semantics.
 # Never enable fast-math, and disable FMA contraction: the R4300 CPU and RSP have no
 # fused multiply-add, so contracting mul+add into an FMA produces extra precision.
