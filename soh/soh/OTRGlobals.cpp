@@ -2,6 +2,7 @@
 #include "OTRAudio.h"
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -15,6 +16,7 @@
 #include "ResourceManagerHelpers.h"
 #include <fast/Fast3dWindow.h>
 #ifdef __ANDROID__
+#include "soh/Android/AdaptiveResolution.h"
 #include "soh/Android/TouchControls.h"
 #endif
 #include <libultraship/bridge/audiobridge.h>
@@ -1823,6 +1825,34 @@ extern "C" void Graph_StartFrame() {
 #endif
 }
 
+#ifdef __ANDROID__
+namespace {
+SohAndroid::AdaptiveResolutionController gAdaptiveResolutionController;
+
+void UpdateAndroidAdaptiveResolution(Fast::Interpreter* interpreter) {
+    const uint32_t targetFps = OTRGlobals::Instance->GetInterpolationFPS();
+    const float configuredScale = CVarGetFloat(CVAR_INTERNAL_RESOLUTION, 1.0f);
+    const bool adaptiveResolutionEnabled = CVarGetInteger(CVAR_SETTING("AdaptiveResolution"), 1) &&
+                                           CVarGetInteger(CVAR_SETTING("MatchRefreshRate"), 0) &&
+                                           !CVarGetInteger(CVAR_PREFIX_ADVANCED_RESOLUTION ".Enabled", 0) &&
+                                           !CVarGetInteger(CVAR_LOW_RES_MODE, 0) && !GfxDebuggerIsDebugging();
+    const int sceneId = gPlayState != nullptr ? gPlayState->sceneNum : -1;
+    // DeltaTime is the elapsed interval between rendered GUI/game frames, so the controller
+    // follows actual output pacing rather than a proxy based on internal renderer work.
+    const float frameTime = ImGui::GetIO().DeltaTime;
+    const float effectiveScale =
+        gAdaptiveResolutionController.Update(configuredScale, frameTime, targetFps, adaptiveResolutionEnabled, sceneId);
+
+    const float previousScale = interpreter->mCurDimensions.internal_mul;
+    if (std::fabs(effectiveScale - previousScale) > 0.0001f) {
+        interpreter->SetResolutionMultiplier(effectiveScale);
+        SPDLOG_INFO("Android adaptive internal resolution: {:.0f}% -> {:.0f}% ({} FPS target)", previousScale * 100.0f,
+                    effectiveScale * 100.0f, targetFps);
+    }
+}
+} // namespace
+#endif
+
 // Interpolated frames of a tick are evenly spaced numerators time+step, time+2*step, ... over denom.
 void RunCommands(Gfx* Commands, int time, int step, int denom, int count) {
     auto wnd = std::dynamic_pointer_cast<Fast::Fast3dWindow>(OTRGlobals::Instance->context->GetWindow());
@@ -1843,14 +1873,18 @@ void RunCommands(Gfx* Commands, int time, int step, int denom, int count) {
     for (int i = 0; i < count; i++) {
         time += step;
         const float interpolationStep = (float)time / denom;
-        std::unordered_map<Mtx*, MtxF> mtx_replacements =
-            (time == denom) ? std::unordered_map<Mtx*, MtxF>() : FrameInterpolation_Interpolate(interpolationStep);
+        const auto& mtx_replacements = FrameInterpolation_Interpolate(interpolationStep, time != denom);
         // Ribbon vertices are shared by every frame of a tick: re-blend them before each run.
         FrameInterpolation_UpdateRibbonHeads(interpolationStep);
         // Skinned vertices are shared by every displayed frame, so blend them before each run
         FrameInterpolation_UpdateSkinnedVertices(interpolationStep);
         intp->mInterpolationT = interpolationStep;
-        wnd->DrawAndRunGraphicsCommands(Commands, mtx_replacements);
+        const bool rendered = wnd->DrawAndRunGraphicsCommands(Commands, mtx_replacements);
+#ifdef __ANDROID__
+        if (rendered) {
+            UpdateAndroidAdaptiveResolution(intp);
+        }
+#endif
         intp->mInterpolationIndex++;
     }
     ImGui::PopStyleColor();

@@ -6,7 +6,8 @@
 
 #include <unordered_map>
 
-std::unordered_map<Mtx*, MtxF> FrameInterpolation_Interpolate(float step);
+// The returned map is reused by the next call; consume it before interpolating another frame.
+const std::unordered_map<Mtx*, MtxF>& FrameInterpolation_Interpolate(float step, bool shouldInterpolate);
 
 extern "C" {
 

@@ -2,6 +2,7 @@
 #include <vector>
 #include <map>
 #include <unordered_map>
+#include <utility>
 #include <math.h>
 
 #include "frame_interpolation.h"
@@ -254,17 +255,54 @@ Data& append(Op op) {
     return m.emplace_back();
 }
 
+class MtxReplacementCache {
+  public:
+    using Map = unordered_map<Mtx*, MtxF>;
+
+    void Clear() {
+        // Keep the nodes alive in a small pool instead of freeing them after every frame.
+        for (auto it = replacements.begin(); it != replacements.end();) {
+            auto current = it++;
+            free_nodes.emplace_back(replacements.extract(current));
+        }
+    }
+
+    MtxF& GetOrCreate(Mtx* addr) {
+        if (auto it = replacements.find(addr); it != replacements.end()) {
+            return it->second;
+        }
+
+        if (free_nodes.empty()) {
+            return replacements.try_emplace(addr).first->second;
+        }
+
+        auto node = std::move(free_nodes.back());
+        free_nodes.pop_back();
+        node.key() = addr;
+        // All replacement paths overwrite the full matrix, so keep the existing payload.
+        return replacements.insert(std::move(node)).position->second;
+    }
+
+    const Map& GetMap() const {
+        return replacements;
+    }
+
+  private:
+    Map replacements;
+    vector<Map::node_type> free_nodes;
+};
+
 struct InterpolateCtx {
     float step;
     float w;
-    unordered_map<Mtx*, MtxF> mtx_replacements;
+    MtxReplacementCache* mtx_replacements;
     MtxF tmp_mtxf, tmp_mtxf2;
     Vec3f tmp_vec3f;
     Vec3s tmp_vec3s;
     MtxF actor_mtx;
 
     MtxF* new_replacement(Mtx* addr) {
-        return &mtx_replacements[addr];
+        return &mtx_replacements->GetOrCreate(addr);
     }
 
     void interpolate_mtxf(MtxF* res, MtxF* o, MtxF* n) {
@@ -497,12 +535,20 @@ struct InterpolateCtx {
 
 } // anonymous namespace
 
-unordered_map<Mtx*, MtxF> FrameInterpolation_Interpolate(float step) {
+const unordered_map<Mtx*, MtxF>& FrameInterpolation_Interpolate(float step, bool shouldInterpolate) {
+    static thread_local MtxReplacementCache replacement_cache;
+    replacement_cache.Clear();
+
+    if (!shouldInterpolate) {
+        return replacement_cache.GetMap();
+    }
+
     InterpolateCtx ctx;
     ctx.step = step;
     ctx.w = 1.0f - step;
+    ctx.mtx_replacements = &replacement_cache;
     ctx.interpolate_branch(&previous_recording.root_path, &current_recording.root_path);
-    return ctx.mtx_replacements;
+    return replacement_cache.GetMap();
 }
 
 void FrameInterpolation_StartRecord(void) {

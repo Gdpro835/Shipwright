@@ -362,6 +362,16 @@ void SohMenu::AddMenuSettings() {
                 .IsPercentage()
                 .Min(0.5f)
                 .Max(2.0f));
+#ifdef __ANDROID__
+    AddWidget(path, "Adaptive Internal Resolution", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_SETTING("AdaptiveResolution"))
+        .RaceDisable(false)
+        .Options(CheckboxOptions().DefaultValue(true).Tooltip(
+            "When Match Refresh Rate is enabled, lowers the render resolution only after sustained "
+            "missed refresh intervals. It keeps the refresh-rate target unchanged and retains a "
+            "lower scale only when measured frame time improves. The configured resolution is "
+            "restored when the active scene or refresh target changes."));
+#endif
 #ifndef __WIIU__
     AddWidget(path, "Anti-aliasing (MSAA)", WIDGET_CVAR_SLIDER_INT)
         .CVar(CVAR_MSAA_VALUE)
