@@ -17,6 +17,8 @@
 #include <libultraship/bridge/consolevariablebridge.h>
 #include <nlohmann/json.hpp>
 #include <ship/Context.h>
+#include <ship/resource/ResourceManager.h>
+#include <ship/resource/archive/ArchiveManager.h>
 #include <spdlog/spdlog.h>
 
 #include "soh/ResourceManagerHelpers.h"
