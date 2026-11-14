@@ -1,0 +1,15 @@
+{
+  "id": "example-slash",
+  "name": "Example Slash",
+  "ages": ["adult"],
+  "libraries": {
+    "windows": "build/example_slash.dll",
+    "linux": "build/libexample_slash.so",
+    "macos": "build/libexample_slash.dylib",
+    "android-arm64": "build/libexample_slash.so",
+    "android-arm32": "build/libexample_slash.so",
+    "android-x86_64": "build/libexample_slash.so",
+    "android-x86": "build/libexample_slash.so",
+    "default": "build/libexample_slash.so"
+  }
+}

@@ -10,6 +10,7 @@
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include "soh/Enhancements/randomizer/draw.h"
 #include "soh/ResourceManagerHelpers.h"
+#include "soh/Enhancements/moveset/MovesetManager.h"
 
 #include <stdlib.h>
 #include <libultraship/bridge/consolevariablebridge.h>
@@ -1574,6 +1575,15 @@ void func_800906D4(PlayState* play, Player* this, Vec3f* newTipPos) {
     Matrix_MultVec3f(&D_801260A4[0], &newBasePos[0]);
     Matrix_MultVec3f(&D_801260A4[1], &newBasePos[1]);
     Matrix_MultVec3f(&D_801260A4[2], &newBasePos[2]);
+
+    const f32 hitboxScale = MovesetManager_GetMeleeHitboxScale(this);
+    if (hitboxScale != 1.0f) {
+        for (s32 i = 0; i < 3; i++) {
+            newTipPos[i].x = newBasePos[i].x + ((newTipPos[i].x - newBasePos[i].x) * hitboxScale);
+            newTipPos[i].y = newBasePos[i].y + ((newTipPos[i].y - newBasePos[i].y) * hitboxScale);
+            newTipPos[i].z = newBasePos[i].z + ((newTipPos[i].z - newBasePos[i].z) * hitboxScale);
+        }
+    }
 
     if (func_80090480(play, NULL, &this->meleeWeaponInfo[0], &newTipPos[0], &newBasePos[0]) &&
         !(this->stateFlags1 & PLAYER_STATE1_SHIELDING) &&

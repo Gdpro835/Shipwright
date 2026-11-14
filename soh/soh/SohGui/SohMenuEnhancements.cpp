@@ -13,6 +13,7 @@
 #include <ship/Context.h>
 #include <libultraship/bridge/consolevariablebridge.h>
 #include <soh/ResourceManagerHelpers.h>
+#include "soh/Enhancements/moveset/MovesetManager.h"
 #include "soh/ShipInit.hpp"
 
 extern "C" {
@@ -92,6 +93,12 @@ static const std::map<int32_t, const char*> sleepingWaterfallOptions = {
     { WATERFALL_ALWAYS, "Always" },
     { WATERFALL_ONCE, "Once" },
     { WATERFALL_NEVER, "Never" },
+};
+
+static const std::map<int32_t, const char*> modernMoveButtonOptions = {
+    { BTN_A, "A" },
+    { BTN_B, "B" },
+    { BTN_L, "L" },
 };
 
 static const std::map<int32_t, const char*> bombchuBowlingFirstPrizeOptions = {
@@ -2195,6 +2202,37 @@ void SohMenu::AddMenuEnhancements() {
             .CVar(timer.timeEnable)
             .Callback([](WidgetInfo& info) { TimeDisplayUpdateDisplayOptions(); });
     }
+
+    path.sidebarName = "Movesets";
+    path.column = SECTION_COLUMN_1;
+    AddSidebarEntry("Enhancements", path.sidebarName, 2);
+    const auto& adultOptions = MovesetManager::GetAvailableMovesetOptions(SHIP_MOVESET_AGE_ADULT);
+    const auto& childOptions = MovesetManager::GetAvailableMovesetOptions(SHIP_MOVESET_AGE_CHILD);
+    AddWidget(path, "Adult Link Moveset", WIDGET_CVAR_COMBOBOX)
+        .CVar(CVAR_ENHANCEMENT("AdultMoveset"))
+        .Options(
+            ComboboxOptions()
+                .ComboMap(adultOptions)
+                .DefaultIndex(0)
+                .Tooltip("Select a moveset for Adult Link. Vanilla and Modern are built in; packages are optional."));
+    AddWidget(path, "Child Link Moveset", WIDGET_CVAR_COMBOBOX)
+        .CVar(CVAR_ENHANCEMENT("ChildMoveset"))
+        .Options(ComboboxOptions()
+                     .ComboMap(childOptions)
+                     .DefaultIndex(0)
+                     .Tooltip("Select a moveset for Child Link independently."));
+    AddWidget(path, "Modern Jump Button", WIDGET_CVAR_COMBOBOX)
+        .CVar(CVAR_ENHANCEMENT("ModernJumpButton"))
+        .Options(ComboboxOptions()
+                     .ComboMap(modernMoveButtonOptions)
+                     .DefaultIndex(BTN_A)
+                     .Tooltip("Grounded free jump when no context action is available."));
+    AddWidget(path, "Modern Dash Button", WIDGET_CVAR_COMBOBOX)
+        .CVar(CVAR_ENHANCEMENT("ModernDashButton"))
+        .Options(ComboboxOptions()
+                     .ComboMap(modernMoveButtonOptions)
+                     .DefaultIndex(BTN_L)
+                     .Tooltip("Dash while grounded and moving; the dash has a brief cooldown."));
 }
 
 } // namespace SohGui

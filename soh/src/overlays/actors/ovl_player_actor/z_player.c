@@ -30,6 +30,7 @@
 #include "soh/frame_interpolation.h"
 #include "soh/OTRGlobals.h"
 #include "soh/Enhancements/savestate_serialize.h"
+#include "soh/Enhancements/moveset/MovesetManager.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -4054,61 +4055,69 @@ typedef enum ActionHandlerIndex {
     /* 10 */ PLAYER_ACTION_HANDLER_10,
     /* 11 */ PLAYER_ACTION_HANDLER_11,
     /* 12 */ PLAYER_ACTION_HANDLER_12,
-    /* 13 */ PLAYER_ACTION_HANDLER_13
+    /* 13 */ PLAYER_ACTION_HANDLER_13,
+    /* 14 */ PLAYER_ACTION_HANDLER_MOVESET
 } ActionHandlerIndex;
 
+/* Keep Modern after context handlers, ahead of vanilla button actions. */
 static s8 sActionHandlerList1[] = {
-    PLAYER_ACTION_HANDLER_13, PLAYER_ACTION_HANDLER_2,  PLAYER_ACTION_HANDLER_TALK, PLAYER_ACTION_HANDLER_9,
-    PLAYER_ACTION_HANDLER_10, PLAYER_ACTION_HANDLER_11, PLAYER_ACTION_HANDLER_8,    -PLAYER_ACTION_HANDLER_7,
+    PLAYER_ACTION_HANDLER_13, PLAYER_ACTION_HANDLER_2,       PLAYER_ACTION_HANDLER_TALK,
+    PLAYER_ACTION_HANDLER_9,  PLAYER_ACTION_HANDLER_MOVESET, PLAYER_ACTION_HANDLER_10,
+    PLAYER_ACTION_HANDLER_11, PLAYER_ACTION_HANDLER_8,       -PLAYER_ACTION_HANDLER_7,
 };
 
 static s8 sActionHandlerList2[] = {
-    PLAYER_ACTION_HANDLER_13, PLAYER_ACTION_HANDLER_1,    PLAYER_ACTION_HANDLER_2, PLAYER_ACTION_HANDLER_5,
-    PLAYER_ACTION_HANDLER_3,  PLAYER_ACTION_HANDLER_TALK, PLAYER_ACTION_HANDLER_9, PLAYER_ACTION_HANDLER_10,
-    PLAYER_ACTION_HANDLER_11, PLAYER_ACTION_HANDLER_7,    PLAYER_ACTION_HANDLER_8, -PLAYER_ACTION_HANDLER_ROLL,
+    PLAYER_ACTION_HANDLER_13,    PLAYER_ACTION_HANDLER_1,    PLAYER_ACTION_HANDLER_2, PLAYER_ACTION_HANDLER_5,
+    PLAYER_ACTION_HANDLER_3,     PLAYER_ACTION_HANDLER_TALK, PLAYER_ACTION_HANDLER_9, PLAYER_ACTION_HANDLER_MOVESET,
+    PLAYER_ACTION_HANDLER_10,    PLAYER_ACTION_HANDLER_11,   PLAYER_ACTION_HANDLER_7, PLAYER_ACTION_HANDLER_8,
+    -PLAYER_ACTION_HANDLER_ROLL,
 };
 
 static s8 sActionHandlerList3[] = {
-    PLAYER_ACTION_HANDLER_13,   PLAYER_ACTION_HANDLER_1, PLAYER_ACTION_HANDLER_2,     PLAYER_ACTION_HANDLER_3,
-    PLAYER_ACTION_HANDLER_TALK, PLAYER_ACTION_HANDLER_9, PLAYER_ACTION_HANDLER_10,    PLAYER_ACTION_HANDLER_11,
-    PLAYER_ACTION_HANDLER_8,    PLAYER_ACTION_HANDLER_7, -PLAYER_ACTION_HANDLER_ROLL,
+    PLAYER_ACTION_HANDLER_13,   PLAYER_ACTION_HANDLER_1, PLAYER_ACTION_HANDLER_2,       PLAYER_ACTION_HANDLER_3,
+    PLAYER_ACTION_HANDLER_TALK, PLAYER_ACTION_HANDLER_9, PLAYER_ACTION_HANDLER_MOVESET, PLAYER_ACTION_HANDLER_10,
+    PLAYER_ACTION_HANDLER_11,   PLAYER_ACTION_HANDLER_8, PLAYER_ACTION_HANDLER_7,       -PLAYER_ACTION_HANDLER_ROLL,
 };
 
 static s8 sActionHandlerList4[] = {
-    PLAYER_ACTION_HANDLER_13, PLAYER_ACTION_HANDLER_2,  PLAYER_ACTION_HANDLER_TALK, PLAYER_ACTION_HANDLER_9,
-    PLAYER_ACTION_HANDLER_10, PLAYER_ACTION_HANDLER_11, PLAYER_ACTION_HANDLER_8,    -PLAYER_ACTION_HANDLER_7,
+    PLAYER_ACTION_HANDLER_13, PLAYER_ACTION_HANDLER_2,       PLAYER_ACTION_HANDLER_TALK,
+    PLAYER_ACTION_HANDLER_9,  PLAYER_ACTION_HANDLER_MOVESET, PLAYER_ACTION_HANDLER_10,
+    PLAYER_ACTION_HANDLER_11, PLAYER_ACTION_HANDLER_8,       -PLAYER_ACTION_HANDLER_7,
 };
 
 static s8 sActionHandlerList5[] = {
-    PLAYER_ACTION_HANDLER_13, PLAYER_ACTION_HANDLER_2,  PLAYER_ACTION_HANDLER_TALK,
-    PLAYER_ACTION_HANDLER_9,  PLAYER_ACTION_HANDLER_10, PLAYER_ACTION_HANDLER_11,
-    PLAYER_ACTION_HANDLER_12, PLAYER_ACTION_HANDLER_8,  -PLAYER_ACTION_HANDLER_7,
+    PLAYER_ACTION_HANDLER_13, PLAYER_ACTION_HANDLER_2,  PLAYER_ACTION_HANDLER_TALK, PLAYER_ACTION_HANDLER_9,
+    PLAYER_ACTION_HANDLER_10, PLAYER_ACTION_HANDLER_11, PLAYER_ACTION_HANDLER_12,   PLAYER_ACTION_HANDLER_MOVESET,
+    PLAYER_ACTION_HANDLER_8,  -PLAYER_ACTION_HANDLER_7,
 };
 
 static s8 sActionHandlerListTurnInPlace[] = {
+    PLAYER_ACTION_HANDLER_MOVESET,
     -PLAYER_ACTION_HANDLER_7,
 };
 
 static s8 sActionHandlerListIdle[] = {
-    PLAYER_ACTION_HANDLER_0, PLAYER_ACTION_HANDLER_11, PLAYER_ACTION_HANDLER_1,     PLAYER_ACTION_HANDLER_2,
-    PLAYER_ACTION_HANDLER_3, PLAYER_ACTION_HANDLER_5,  PLAYER_ACTION_HANDLER_TALK,  PLAYER_ACTION_HANDLER_9,
-    PLAYER_ACTION_HANDLER_8, PLAYER_ACTION_HANDLER_7,  -PLAYER_ACTION_HANDLER_ROLL,
+    PLAYER_ACTION_HANDLER_0,       PLAYER_ACTION_HANDLER_11, PLAYER_ACTION_HANDLER_1,    PLAYER_ACTION_HANDLER_2,
+    PLAYER_ACTION_HANDLER_3,       PLAYER_ACTION_HANDLER_5,  PLAYER_ACTION_HANDLER_TALK, PLAYER_ACTION_HANDLER_9,
+    PLAYER_ACTION_HANDLER_MOVESET, PLAYER_ACTION_HANDLER_8,  PLAYER_ACTION_HANDLER_7,    -PLAYER_ACTION_HANDLER_ROLL,
 };
 
 static s8 sActionHandlerList8[] = {
-    PLAYER_ACTION_HANDLER_0, PLAYER_ACTION_HANDLER_11, PLAYER_ACTION_HANDLER_1, PLAYER_ACTION_HANDLER_2,
-    PLAYER_ACTION_HANDLER_3, PLAYER_ACTION_HANDLER_12, PLAYER_ACTION_HANDLER_5, PLAYER_ACTION_HANDLER_TALK,
-    PLAYER_ACTION_HANDLER_9, PLAYER_ACTION_HANDLER_8,  PLAYER_ACTION_HANDLER_7, -PLAYER_ACTION_HANDLER_ROLL,
-};
-
-static s8 sActionHandlerList9[] = {
-    PLAYER_ACTION_HANDLER_13,    PLAYER_ACTION_HANDLER_1,  PLAYER_ACTION_HANDLER_2,    PLAYER_ACTION_HANDLER_3,
-    PLAYER_ACTION_HANDLER_12,    PLAYER_ACTION_HANDLER_5,  PLAYER_ACTION_HANDLER_TALK, PLAYER_ACTION_HANDLER_9,
-    PLAYER_ACTION_HANDLER_10,    PLAYER_ACTION_HANDLER_11, PLAYER_ACTION_HANDLER_8,    PLAYER_ACTION_HANDLER_7,
+    PLAYER_ACTION_HANDLER_0,     PLAYER_ACTION_HANDLER_11,      PLAYER_ACTION_HANDLER_1, PLAYER_ACTION_HANDLER_2,
+    PLAYER_ACTION_HANDLER_3,     PLAYER_ACTION_HANDLER_12,      PLAYER_ACTION_HANDLER_5, PLAYER_ACTION_HANDLER_TALK,
+    PLAYER_ACTION_HANDLER_9,     PLAYER_ACTION_HANDLER_MOVESET, PLAYER_ACTION_HANDLER_8, PLAYER_ACTION_HANDLER_7,
     -PLAYER_ACTION_HANDLER_ROLL,
 };
 
+static s8 sActionHandlerList9[] = {
+    PLAYER_ACTION_HANDLER_13,      PLAYER_ACTION_HANDLER_1,     PLAYER_ACTION_HANDLER_2,    PLAYER_ACTION_HANDLER_3,
+    PLAYER_ACTION_HANDLER_12,      PLAYER_ACTION_HANDLER_5,     PLAYER_ACTION_HANDLER_TALK, PLAYER_ACTION_HANDLER_9,
+    PLAYER_ACTION_HANDLER_MOVESET, PLAYER_ACTION_HANDLER_10,    PLAYER_ACTION_HANDLER_11,   PLAYER_ACTION_HANDLER_8,
+    PLAYER_ACTION_HANDLER_7,       -PLAYER_ACTION_HANDLER_ROLL,
+};
+
 static s8 sActionHandlerList10[] = {
+    PLAYER_ACTION_HANDLER_MOVESET,
     PLAYER_ACTION_HANDLER_10,
     PLAYER_ACTION_HANDLER_8,
     -PLAYER_ACTION_HANDLER_7,
@@ -4135,6 +4144,8 @@ s32 Player_ActionHandler_10(Player* this, PlayState* play);
 s32 Player_ActionHandler_11(Player* this, PlayState* play);
 s32 Player_ActionHandler_12(Player* this, PlayState* play);
 s32 Player_ActionHandler_13(Player* this, PlayState* play);
+s32 Player_ActionHandler_Moveset(Player* this, PlayState* play);
+void func_8083C858(Player* this, PlayState* play);
 
 static s32 (*sActionHandlerFuncs[])(Player* this, PlayState* play) = {
     Player_ActionHandler_0,    // PLAYER_ACTION_HANDLER_0
@@ -4150,7 +4161,8 @@ static s32 (*sActionHandlerFuncs[])(Player* this, PlayState* play) = {
     Player_ActionHandler_10,   // PLAYER_ACTION_HANDLER_10
     Player_ActionHandler_11,   // PLAYER_ACTION_HANDLER_11
     Player_ActionHandler_12,   // PLAYER_ACTION_HANDLER_12
-    Player_ActionHandler_13,   // PLAYER_ACTION_HANDLER_13
+    Player_ActionHandler_13,       // PLAYER_ACTION_HANDLER_13
+    Player_ActionHandler_Moveset,  // PLAYER_ACTION_HANDLER_MOVESET
 };
 
 /**
@@ -4915,6 +4927,81 @@ void func_80838940(Player* this, LinkAnimationHeader* anim, f32 arg2, PlayState*
 
 void func_808389E8(Player* this, LinkAnimationHeader* anim, f32 arg2, PlayState* play) {
     func_80838940(this, anim, arg2, play, NA_SE_VO_LI_SWORD_N);
+}
+
+static s32 Player_IsSupportedMovesetButton(s32 button) {
+    return button == BTN_A || button == BTN_B || button == BTN_L;
+}
+
+static s32 Player_IsModernActionButton(Player* this, s32 button) {
+    return MovesetManager_IsModern(this) &&
+           (CVarGetInteger(CVAR_ENHANCEMENT("ModernJumpButton"), BTN_A) == button ||
+            CVarGetInteger(CVAR_ENHANCEMENT("ModernDashButton"), BTN_L) == button);
+}
+
+static s32 Player_TryModernMovesetAction(PlayState* play, Player* this) {
+    Input* input = sControlInput;
+    const u32 blockedStateFlags1 =
+        PLAYER_STATE1_INPUT_DISABLED | PLAYER_STATE1_TALKING | PLAYER_STATE1_DEAD | PLAYER_STATE1_DAMAGED |
+        PLAYER_STATE1_GETTING_ITEM | PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_IN_WATER | PLAYER_STATE1_IN_ITEM_CS |
+        PLAYER_STATE1_IN_CUTSCENE | PLAYER_STATE1_FIRST_PERSON | PLAYER_STATE1_ON_HORSE |
+        PLAYER_STATE1_HANGING_OFF_LEDGE | PLAYER_STATE1_CLIMBING_LEDGE | PLAYER_STATE1_CLIMBING_LADDER;
+    const u32 blockedStateFlags2 =
+        PLAYER_STATE2_PAUSE_MOST_UPDATING | PLAYER_STATE2_UNDERWATER | PLAYER_STATE2_GRABBED_BY_ENEMY |
+        PLAYER_STATE2_STATIONARY_LADDER | PLAYER_STATE2_FROZEN | PLAYER_STATE2_DO_ACTION_GRAB |
+        PLAYER_STATE2_CAN_ACCEPT_TALK_OFFER | PLAYER_STATE2_DO_ACTION_CLIMB | PLAYER_STATE2_DO_ACTION_ENTER |
+        PLAYER_STATE2_DO_ACTION_DOWN | PLAYER_STATE2_NEAR_OCARINA_ACTOR | PLAYER_STATE2_PLAY_FOR_ACTOR |
+        PLAYER_STATE2_ATTEMPT_PLAY_FOR_ACTOR | PLAYER_STATE2_OCARINA_PLAYING | PLAYER_STATE2_CRAWLING;
+    if (!input || sUpperBodyIsBusy || !MovesetManager_IsModern(this) ||
+        (this->stateFlags1 & blockedStateFlags1) || (this->stateFlags2 & blockedStateFlags2) || this->csAction != 0 ||
+        this->talkActor != NULL || this->interactRangeActor != NULL || this->rideActor != NULL ||
+        this->doorType != PLAYER_DOORTYPE_NONE || !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) ||
+        this->currentBoots == PLAYER_BOOTS_IRON) return 0;
+
+    const s32 movement = ABS(input->rel.stick_x) >= 20 || ABS(input->rel.stick_y) >= 20;
+    const s32 dashButton = CVarGetInteger(CVAR_ENHANCEMENT("ModernDashButton"), BTN_L);
+    if (movement && Player_IsSupportedMovesetButton(dashButton) && CHECK_BTN_ALL(input->press.button, dashButton) &&
+        MovesetManager_GetDashCooldown(this) == 0) {
+        f32 speed = 0.0f;
+        s16 yaw = this->yaw;
+        const f32 runLimit = R_RUN_SPEED_LIMIT / 100.0f;
+        const f32 baseSpeed = runLimit > 0.0f ? runLimit : 8.0f;
+        if (Player_GetMovementSpeedAndYaw(this, &speed, &yaw, SPEED_MODE_LINEAR, play)) {
+            this->actor.shape.rot.y = yaw;
+            this->yaw = yaw;
+        } else yaw = this->yaw;
+        func_8083C858(this, play);
+        this->actor.shape.rot.y = this->yaw = yaw;
+        this->linearVelocity = fmaxf(baseSpeed, speed) * 1.5f;
+        MovesetManager_SetDashCooldown(this, 18);
+        MovesetManager_SpawnEffect(play, this, SHIP_MOVESET_EFFECT_DUST, 1.0f);
+        Player_PlaySfx(this, NA_SE_PL_ROLL);
+        return 1;
+    }
+    const s32 jumpButton = CVarGetInteger(CVAR_ENHANCEMENT("ModernJumpButton"), BTN_A);
+    if (Player_IsSupportedMovesetButton(jumpButton) && CHECK_BTN_ALL(input->press.button, jumpButton) &&
+        play->roomCtx.curRoom.behaviorType1 != ROOM_BEHAVIOR_TYPE1_2 && sFloorType != 7 &&
+        SurfaceType_GetFloorEffect(&play->colCtx, this->actor.floorPoly, this->actor.floorBgId) != FLOOR_EFFECT_1) {
+        f32 speed = 0.0f;
+        s16 yaw = this->yaw;
+        if (Player_GetMovementSpeedAndYaw(this, &speed, &yaw, SPEED_MODE_LINEAR, play)) {
+            this->actor.shape.rot.y = this->yaw = yaw;
+            this->linearVelocity = speed;
+        }
+        LinkAnimationHeader* animation;
+        if (fmaxf(fabsf(this->linearVelocity), speed) >= 4.0f) {
+            animation = &gPlayerAnim_link_normal_run_jump;
+        } else {
+            animation = &gPlayerAnim_link_normal_jump;
+        }
+        func_808389E8(this, animation, REG(69) / 100.0f, play);
+        return 1;
+    }
+    return 0;
+}
+
+s32 Player_ActionHandler_Moveset(Player* this, PlayState* play) {
+    return Player_TryModernMovesetAction(play, this);
 }
 
 s32 Player_ActionHandler_12(Player* this, PlayState* play) {
@@ -6339,6 +6426,8 @@ void func_8083BCD0(Player* this, PlayState* play, s32 controlStickDirection) {
 
 s32 Player_ActionHandler_10(Player* this, PlayState* play) {
     s32 controlStickDirection;
+    if (sControlInput && CHECK_BTN_ALL(sControlInput->press.button, BTN_A) && Player_IsModernActionButton(this, BTN_A))
+        return false;
 
     if (CHECK_BTN_ALL(sControlInput->press.button, BTN_A) &&
         (play->roomCtx.curRoom.behaviorType1 != ROOM_BEHAVIOR_TYPE1_2) && (sFloorType != 7) &&
@@ -6449,6 +6538,8 @@ void func_8083C148(Player* this, PlayState* play) {
  * even if they occur.
  */
 s32 Player_ActionHandler_Roll(Player* this, PlayState* play) {
+    if (sControlInput && CHECK_BTN_ALL(sControlInput->press.button, BTN_A) && Player_IsModernActionButton(this, BTN_A))
+        return false;
     if (!Player_UpdateHostileLockOn(this) && !sUpperBodyIsBusy && !(this->stateFlags1 & PLAYER_STATE1_ON_HORSE) &&
         CHECK_BTN_ALL(sControlInput->press.button, BTN_A)) {
         if (Player_TryRoll(this, play)) {
@@ -6535,6 +6626,7 @@ void func_8083C50C(Player* this) {
 }
 
 s32 Player_ActionHandler_8(Player* this, PlayState* play) {
+    if (CHECK_BTN_ALL(sControlInput->cur.button, BTN_B) && Player_IsModernActionButton(this, BTN_B)) return false;
     if (CHECK_BTN_ALL(sControlInput->cur.button, BTN_B)) {
         if (!(this->stateFlags1 & PLAYER_STATE1_SHIELDING) && (Player_GetMeleeWeaponHeld(this) != 0) &&
             (this->unk_844 == 1) && (this->heldItemAction != PLAYER_IA_DEKU_STICK)) {
@@ -11779,6 +11871,7 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
     s32 pad;
 
     sControlInput = input;
+    MovesetManager_CancelPlayerAction(this);
 
     if (this->unk_A86 < 0) {
         this->unk_A86++;
@@ -12084,7 +12177,10 @@ void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
 
         if (GameInteractor_Should(VB_EXECUTE_PLAYER_ACTION_FUNC, !(this->stateFlags3 & PLAYER_STATE3_PAUSE_ACTION_FUNC),
                                   this, input)) {
-            this->actionFunc(this, play);
+            if (!MovesetManager_HandlePlayerAction(play, this, input)) this->actionFunc(this, play);
+            MovesetManager_EndPlayerFrame(play, this);
+        } else {
+            MovesetManager_CancelPlayerAction(this);
         }
 
         Player_UpdateCamAndSeqModes(play, this);
@@ -15014,6 +15110,8 @@ void Player_UpdateBunnyEars(Player* this) {
 }
 
 s32 Player_ActionHandler_7(Player* this, PlayState* play) {
+    if (sControlInput && CHECK_BTN_ALL(sControlInput->press.button, BTN_B) && Player_IsModernActionButton(this, BTN_B))
+        return false;
     if (func_8083C6B8(play, this) == 0) {
         if (func_8083BB20(this) != 0) {
             s32 sp24 = func_80837818(this);

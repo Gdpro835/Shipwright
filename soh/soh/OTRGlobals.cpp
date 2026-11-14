@@ -49,6 +49,7 @@
 #include "soh/Enhancements/randomizer/settings.h"
 #include "soh/Enhancements/savestates.h"
 #include "soh/Enhancements/speedrun/Speedrun.h"
+#include "soh/Enhancements/moveset/MovesetManager.h"
 #include "frame_interpolation.h"
 #include "SohGui/SohMenu.h"
 #include "SohGui/SohGui.hpp"
@@ -1591,6 +1592,7 @@ extern "C" void InitOTR(int argc, char* argv[]) {
     OTRGlobals::Instance->RunExtract(argc, argv);
 
     OTRGlobals::Instance->Initialize();
+    MovesetManager::Initialize();
     CustomMessageManager::Instance = new CustomMessageManager();
     ItemTableManager::Instance = new ItemTableManager();
     GameInteractor::Instance = new GameInteractor();
@@ -1668,6 +1670,7 @@ extern "C" void SaveManager_ThreadPoolWait() {
 extern "C" void DeinitOTR() {
     SaveManager_ThreadPoolWait();
     WaitForRandoGeneration();
+    MovesetManager::Shutdown();
     OTRAudio_Exit();
     if (CVarGetInteger(CVAR_REMOTE_CROWD_CONTROL("Enabled"), 0)) {
         CrowdControl::Instance->Disable();

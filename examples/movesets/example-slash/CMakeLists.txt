@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(example_slash C)
+add_library(example_slash SHARED example_slash.c)
+target_compile_features(example_slash PRIVATE c_std_11)
+target_include_directories(example_slash PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../../soh/include")
+set_target_properties(example_slash PROPERTIES C_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES)
