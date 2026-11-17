@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <utility>
+#include <unordered_set>
 #include <vector>
 #include <chrono>
 #include <optional>
@@ -14,6 +15,7 @@
 #include <imgui.h>
 
 #include "ResourceManagerHelpers.h"
+#include "soh/cvar_prefixes.h"
 #include <fast/Fast3dWindow.h>
 #ifdef __ANDROID__
 #include "soh/Android/AdaptiveResolution.h"
@@ -101,6 +103,7 @@
 #include "Enhancements/game-interactor/GameInteractor.h"
 #include "Enhancements/randomizer/draw.h"
 #include <libultraship/controller/controldeck/ControlDeck.h>
+#include <libultraship/controller/controldevice/controller/mapping/ControllerDefaultMappings.h>
 #include <fast/resource/ResourceType.h>
 
 // Resource Types/Factories
@@ -288,6 +291,68 @@ static bool VerifyArchiveVersion(OTRVersion version);
 std::string portArchivePath = "";
 static bool sohArchiveVersionMatch = false;
 
+namespace {
+class SohControllerDefaultMappings final : public LUS::ControllerDefaultMappings {
+  public:
+    SohControllerDefaultMappings() {
+        auto keyboardMappings = GetDefaultKeyboardKeyToButtonMappings();
+        keyboardMappings[BTN_CUSTOM_X].insert(Ship::LUS_KB_V);
+        keyboardMappings[BTN_CUSTOM_Y].insert(Ship::LUS_KB_Y);
+        SetDefaultKeyboardKeyToButtonMappings(std::move(keyboardMappings));
+
+        auto gamepadMappings = GetDefaultSDLButtonToButtonMappings();
+        gamepadMappings[BTN_CUSTOM_X].insert(SDL_CONTROLLER_BUTTON_X);
+        gamepadMappings[BTN_CUSTOM_Y].insert(SDL_CONTROLLER_BUTTON_Y);
+        SetDefaultSDLButtonToButtonMappings(std::move(gamepadMappings));
+    }
+
+  protected:
+    void SetDefaultKeyboardKeyToButtonMappings(
+        std::unordered_map<CONTROLLERBUTTONS_T, std::unordered_set<Ship::KbScancode>> mappings) override {
+        Ship::ControllerDefaultMappings::SetDefaultKeyboardKeyToButtonMappings(std::move(mappings));
+    }
+
+    void SetDefaultSDLButtonToButtonMappings(
+        std::unordered_map<CONTROLLERBUTTONS_T, std::unordered_set<SDL_GameControllerButton>> mappings) override {
+        Ship::ControllerDefaultMappings::SetDefaultSDLButtonToButtonMappings(std::move(mappings));
+    }
+};
+} // namespace
+
+extern "C" void Soh_EnsureModernButtonMappings(void) {
+    const char* migrationCVar = CVAR_ENHANCEMENT("ModernButtonMappingsV1");
+    if (CVarGetInteger(migrationCVar, 0)) {
+        return;
+    }
+
+    Ship::Context* context = Ship::Context::GetRawInstance();
+    if (context == nullptr || context->GetControlDeck() == nullptr) {
+        return;
+    }
+
+    for (uint8_t port = 0; port < 4; ++port) {
+        const auto controller = context->GetControlDeck()->GetControllerByPort(port);
+        if (controller == nullptr || !controller->HasConfig()) {
+            continue;
+        }
+        for (const CONTROLLERBUTTONS_T bitmask : { BTN_CUSTOM_X, BTN_CUSTOM_Y }) {
+            const auto button = controller->GetButtonByBitmask(bitmask);
+            if (button == nullptr) {
+                continue;
+            }
+            for (const Ship::PhysicalDeviceType deviceType :
+                 { Ship::PhysicalDeviceType::Keyboard, Ship::PhysicalDeviceType::SDLGamepad }) {
+                if (!button->HasMappingsForPhysicalDeviceType(deviceType)) {
+                    button->AddDefaultMappings(deviceType);
+                }
+            }
+        }
+    }
+
+    CVarSetInteger(migrationCVar, 1);
+    CVarSave();
+}
+
 OTRGlobals::OTRGlobals() {
     context = Ship::Context::CreateUninitializedInstance("Ship of Harkinian", appShortName, "shipofharkinian.json");
 
@@ -304,18 +369,30 @@ OTRGlobals::OTRGlobals() {
     context->GetConfig()->SetBool("Window.Fullscreen.Enabled", true);
 #endif
 
-    auto controlDeck = std::make_shared<LUS::ControlDeck>(std::vector<CONTROLLERBUTTONS_T>({
-        BTN_CUSTOM_MODIFIER1,
-        BTN_CUSTOM_MODIFIER2,
-        BTN_CUSTOM_OCARINA_NOTE_D4,
-        BTN_CUSTOM_OCARINA_NOTE_F4,
-        BTN_CUSTOM_OCARINA_NOTE_A4,
-        BTN_CUSTOM_OCARINA_NOTE_B4,
-        BTN_CUSTOM_OCARINA_NOTE_D5,
-        BTN_CUSTOM_OCARINA_DISABLE_SONGS,
-        BTN_CUSTOM_OCARINA_PITCH_UP,
-        BTN_CUSTOM_OCARINA_PITCH_DOWN,
-    }));
+    auto controlDeck = std::make_shared<LUS::ControlDeck>(
+        std::vector<CONTROLLERBUTTONS_T>(
+            { BTN_CUSTOM_MODIFIER1, BTN_CUSTOM_MODIFIER2, BTN_CUSTOM_OCARINA_NOTE_D4, BTN_CUSTOM_OCARINA_NOTE_F4,
+              BTN_CUSTOM_OCARINA_NOTE_A4, BTN_CUSTOM_OCARINA_NOTE_B4, BTN_CUSTOM_OCARINA_NOTE_D5,
+              BTN_CUSTOM_OCARINA_DISABLE_SONGS, BTN_CUSTOM_OCARINA_PITCH_UP, BTN_CUSTOM_OCARINA_PITCH_DOWN }),
+        std::make_shared<SohControllerDefaultMappings>(),
+        std::unordered_map<CONTROLLERBUTTONS_T, std::string>({
+            { BTN_A, "A" },
+            { BTN_B, "B" },
+            { BTN_L, "L" },
+            { BTN_R, "R" },
+            { BTN_Z, "Z" },
+            { BTN_START, "Start" },
+            { BTN_CLEFT, "CLeft" },
+            { BTN_CRIGHT, "CRight" },
+            { BTN_CUP, "CUp" },
+            { BTN_CDOWN, "CDown" },
+            { BTN_DLEFT, "DLeft" },
+            { BTN_DRIGHT, "DRight" },
+            { BTN_DUP, "DUp" },
+            { BTN_DDOWN, "DDown" },
+            { BTN_CUSTOM_X, "X" },
+            { BTN_CUSTOM_Y, "Y" },
+        }));
     context->InitControlDeck(controlDeck);
     context->InitResourceManager({ portArchivePath }, {}, 3, true);
     context->InitConsole();

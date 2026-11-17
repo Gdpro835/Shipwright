@@ -3935,6 +3935,9 @@ void Player_UpdateZTargeting(Player* this, PlayState* play) {
 // when target speed ramps up very quickly.
 #define SPEED_MODE_CURVED 0.018f
 
+static s32 Player_IsSupportedMovesetButton(s32 button);
+static s32 Player_IsModernSprintHeld(const Player* this);
+
 /**
  * Calculates target speed and yaw based on input from the control stick.
  * See `Player_GetMovementSpeedAndYaw` for detailed argument descriptions.
@@ -3984,6 +3987,9 @@ s32 Player_CalcSpeedAndYawFromControlStick(PlayState* play, Player* this, f32* o
             if (this->unk_6C4 != 0.0f) {
                 speedCap -= this->unk_6C4 * 0.008f;
                 speedCap = CLAMP_MIN(speedCap, 2.0f);
+            }
+            if (Player_IsModernSprintHeld(this)) {
+                speedCap *= 1.5f;
             }
 
             *outSpeedTarget = (*outSpeedTarget * 0.14f) - (8.0f * floorPitchInfluence * floorPitchInfluence);
@@ -4930,13 +4936,38 @@ void func_808389E8(Player* this, LinkAnimationHeader* anim, f32 arg2, PlayState*
 }
 
 static s32 Player_IsSupportedMovesetButton(s32 button) {
-    return button == BTN_A || button == BTN_B || button == BTN_L;
+    return button == BTN_A || button == BTN_B || button == BTN_L || button == BTN_CUSTOM_X || button == BTN_CUSTOM_Y;
+}
+
+static s32 Player_IsModernSprintHeld(const Player* this) {
+    const u32 blockedStateFlags1 =
+        PLAYER_STATE1_INPUT_DISABLED | PLAYER_STATE1_TALKING | PLAYER_STATE1_DEAD | PLAYER_STATE1_DAMAGED |
+        PLAYER_STATE1_GETTING_ITEM | PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_IN_WATER | PLAYER_STATE1_IN_ITEM_CS |
+        PLAYER_STATE1_IN_CUTSCENE | PLAYER_STATE1_FIRST_PERSON | PLAYER_STATE1_ON_HORSE |
+        PLAYER_STATE1_HANGING_OFF_LEDGE | PLAYER_STATE1_CLIMBING_LEDGE | PLAYER_STATE1_CLIMBING_LADDER;
+    const u32 blockedStateFlags2 =
+        PLAYER_STATE2_PAUSE_MOST_UPDATING | PLAYER_STATE2_UNDERWATER | PLAYER_STATE2_GRABBED_BY_ENEMY |
+        PLAYER_STATE2_STATIONARY_LADDER | PLAYER_STATE2_FROZEN | PLAYER_STATE2_DO_ACTION_GRAB |
+        PLAYER_STATE2_CAN_ACCEPT_TALK_OFFER | PLAYER_STATE2_DO_ACTION_CLIMB | PLAYER_STATE2_DO_ACTION_ENTER |
+        PLAYER_STATE2_DO_ACTION_DOWN | PLAYER_STATE2_NEAR_OCARINA_ACTOR | PLAYER_STATE2_PLAY_FOR_ACTOR |
+        PLAYER_STATE2_ATTEMPT_PLAY_FOR_ACTOR | PLAYER_STATE2_OCARINA_PLAYING | PLAYER_STATE2_CRAWLING;
+
+    if (this == NULL || sControlInput == NULL || !MovesetManager_IsModern(this) ||
+        (this->stateFlags1 & blockedStateFlags1) || (this->stateFlags2 & blockedStateFlags2) || this->csAction != 0 ||
+        this->talkActor != NULL || this->interactRangeActor != NULL || this->rideActor != NULL ||
+        this->doorType != PLAYER_DOORTYPE_NONE || !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) ||
+        this->currentBoots == PLAYER_BOOTS_IRON) {
+        return 0;
+    }
+
+    const s32 sprintButton = CVarGetInteger(CVAR_ENHANCEMENT("ModernSprintButton"), BTN_CUSTOM_X);
+    return Player_IsSupportedMovesetButton(sprintButton) && CHECK_BTN_ALL(sControlInput->cur.button, sprintButton);
 }
 
 static s32 Player_IsModernActionButton(Player* this, s32 button) {
     return MovesetManager_IsModern(this) &&
-           (CVarGetInteger(CVAR_ENHANCEMENT("ModernJumpButton"), BTN_A) == button ||
-            CVarGetInteger(CVAR_ENHANCEMENT("ModernDashButton"), BTN_L) == button);
+           (CVarGetInteger(CVAR_ENHANCEMENT("ModernJumpButton"), BTN_CUSTOM_Y) == button ||
+            CVarGetInteger(CVAR_ENHANCEMENT("ModernSprintButton"), BTN_CUSTOM_X) == button);
 }
 
 static s32 Player_TryModernMovesetAction(PlayState* play, Player* this) {
@@ -4952,33 +4983,13 @@ static s32 Player_TryModernMovesetAction(PlayState* play, Player* this) {
         PLAYER_STATE2_CAN_ACCEPT_TALK_OFFER | PLAYER_STATE2_DO_ACTION_CLIMB | PLAYER_STATE2_DO_ACTION_ENTER |
         PLAYER_STATE2_DO_ACTION_DOWN | PLAYER_STATE2_NEAR_OCARINA_ACTOR | PLAYER_STATE2_PLAY_FOR_ACTOR |
         PLAYER_STATE2_ATTEMPT_PLAY_FOR_ACTOR | PLAYER_STATE2_OCARINA_PLAYING | PLAYER_STATE2_CRAWLING;
-    if (!input || sUpperBodyIsBusy || !MovesetManager_IsModern(this) ||
-        (this->stateFlags1 & blockedStateFlags1) || (this->stateFlags2 & blockedStateFlags2) || this->csAction != 0 ||
-        this->talkActor != NULL || this->interactRangeActor != NULL || this->rideActor != NULL ||
-        this->doorType != PLAYER_DOORTYPE_NONE || !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) ||
-        this->currentBoots == PLAYER_BOOTS_IRON) return 0;
+    if (!input || sUpperBodyIsBusy || !MovesetManager_IsModern(this) || (this->stateFlags1 & blockedStateFlags1) ||
+        (this->stateFlags2 & blockedStateFlags2) || this->csAction != 0 || this->talkActor != NULL ||
+        this->interactRangeActor != NULL || this->rideActor != NULL || this->doorType != PLAYER_DOORTYPE_NONE ||
+        !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) || this->currentBoots == PLAYER_BOOTS_IRON)
+        return 0;
 
-    const s32 movement = ABS(input->rel.stick_x) >= 20 || ABS(input->rel.stick_y) >= 20;
-    const s32 dashButton = CVarGetInteger(CVAR_ENHANCEMENT("ModernDashButton"), BTN_L);
-    if (movement && Player_IsSupportedMovesetButton(dashButton) && CHECK_BTN_ALL(input->press.button, dashButton) &&
-        MovesetManager_GetDashCooldown(this) == 0) {
-        f32 speed = 0.0f;
-        s16 yaw = this->yaw;
-        const f32 runLimit = R_RUN_SPEED_LIMIT / 100.0f;
-        const f32 baseSpeed = runLimit > 0.0f ? runLimit : 8.0f;
-        if (Player_GetMovementSpeedAndYaw(this, &speed, &yaw, SPEED_MODE_LINEAR, play)) {
-            this->actor.shape.rot.y = yaw;
-            this->yaw = yaw;
-        } else yaw = this->yaw;
-        func_8083C858(this, play);
-        this->actor.shape.rot.y = this->yaw = yaw;
-        this->linearVelocity = fmaxf(baseSpeed, speed) * 1.5f;
-        MovesetManager_SetDashCooldown(this, 18);
-        MovesetManager_SpawnEffect(play, this, SHIP_MOVESET_EFFECT_DUST, 1.0f);
-        Player_PlaySfx(this, NA_SE_PL_ROLL);
-        return 1;
-    }
-    const s32 jumpButton = CVarGetInteger(CVAR_ENHANCEMENT("ModernJumpButton"), BTN_A);
+    const s32 jumpButton = CVarGetInteger(CVAR_ENHANCEMENT("ModernJumpButton"), BTN_CUSTOM_Y);
     if (Player_IsSupportedMovesetButton(jumpButton) && CHECK_BTN_ALL(input->press.button, jumpButton) &&
         play->roomCtx.curRoom.behaviorType1 != ROOM_BEHAVIOR_TYPE1_2 && sFloorType != 7 &&
         SurfaceType_GetFloorEffect(&play->colCtx, this->actor.floorPoly, this->actor.floorBgId) != FLOOR_EFFECT_1) {

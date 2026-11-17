@@ -45,7 +45,8 @@ void SohInputEditorWindow::InitElement() {
     mRumbleMappingToTest = nullptr;
     mInputEditorPopupOpen = false;
 
-    mButtonsBitmasks = { BTN_A, BTN_B, BTN_START, BTN_L, BTN_R, BTN_Z, BTN_CUP, BTN_CDOWN, BTN_CLEFT, BTN_CRIGHT };
+    mButtonsBitmasks = { BTN_A, BTN_B, BTN_CUSTOM_X, BTN_CUSTOM_Y, BTN_START, BTN_L,
+                         BTN_R, BTN_Z, BTN_CUP,      BTN_CDOWN,    BTN_CLEFT, BTN_CRIGHT };
     mDpadBitmasks = { BTN_DUP, BTN_DDOWN, BTN_DLEFT, BTN_DRIGHT };
     mModifierButtonsBitmasks = { BTN_CUSTOM_MODIFIER1, BTN_CUSTOM_MODIFIER2 };
     mCustomOcarinaButtonsBitmasks = { BTN_CUSTOM_OCARINA_NOTE_D4, BTN_CUSTOM_OCARINA_NOTE_F4,
@@ -54,6 +55,8 @@ void SohInputEditorWindow::InitElement() {
 
     addButtonName(BTN_A, "A");
     addButtonName(BTN_B, "B");
+    addButtonName(BTN_CUSTOM_X, "X");
+    addButtonName(BTN_CUSTOM_Y, "Y");
     addButtonName(BTN_CUP, "C Up");
     addButtonName(BTN_CDOWN, "C Down");
     addButtonName(BTN_CLEFT, "C Left");
@@ -1579,6 +1582,8 @@ void SohInputEditorWindow::DrawLinkTab() {
         if (ImGui::CollapsingHeader("Buttons", NULL, ImGuiTreeNodeFlags_DefaultOpen)) {
             DrawButtonLine("A", portIndex, BTN_A, CHIP_COLOR_N64_BLUE);
             DrawButtonLine("B", portIndex, BTN_B, CHIP_COLOR_N64_GREEN);
+            DrawButtonLine("X", portIndex, BTN_CUSTOM_X, CHIP_COLOR_N64_RED);
+            DrawButtonLine("Y", portIndex, BTN_CUSTOM_Y, CHIP_COLOR_N64_YELLOW);
             DrawButtonLine("Start", portIndex, BTN_START, CHIP_COLOR_N64_RED);
             DrawButtonLine("L", portIndex, BTN_L);
             DrawButtonLine("R", portIndex, BTN_R);
@@ -1678,6 +1683,8 @@ void SohInputEditorWindow::DrawIvanTab() {
         if (ImGui::CollapsingHeader("Buttons", NULL, ImGuiTreeNodeFlags_DefaultOpen)) {
             DrawButtonLine("A", portIndex, BTN_A, CHIP_COLOR_N64_BLUE);
             DrawButtonLine("B", portIndex, BTN_B, CHIP_COLOR_N64_GREEN);
+            DrawButtonLine("X", portIndex, BTN_CUSTOM_X, CHIP_COLOR_N64_RED);
+            DrawButtonLine("Y", portIndex, BTN_CUSTOM_Y, CHIP_COLOR_N64_YELLOW);
             DrawButtonLine("Z", portIndex, BTN_Z);
             DrawButtonLine(StringHelper::Sprintf("C %s", ICON_FA_ARROW_UP).c_str(), portIndex, BTN_CUP,
                            CHIP_COLOR_N64_YELLOW);
@@ -1723,6 +1730,8 @@ void SohInputEditorWindow::DrawDebugPortTab(uint8_t portIndex, std::string custo
         if (ImGui::CollapsingHeader("Buttons", NULL, ImGuiTreeNodeFlags_DefaultOpen)) {
             DrawButtonLine("A", portIndex, BTN_A, CHIP_COLOR_N64_BLUE);
             DrawButtonLine("B", portIndex, BTN_B, CHIP_COLOR_N64_GREEN);
+            DrawButtonLine("X", portIndex, BTN_CUSTOM_X, CHIP_COLOR_N64_RED);
+            DrawButtonLine("Y", portIndex, BTN_CUSTOM_Y, CHIP_COLOR_N64_YELLOW);
             DrawButtonLine("Start", portIndex, BTN_START, CHIP_COLOR_N64_RED);
             DrawButtonLine("L", portIndex, BTN_L);
             DrawButtonLine("R", portIndex, BTN_R);

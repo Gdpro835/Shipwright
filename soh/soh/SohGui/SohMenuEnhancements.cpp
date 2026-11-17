@@ -96,9 +96,7 @@ static const std::map<int32_t, const char*> sleepingWaterfallOptions = {
 };
 
 static const std::map<int32_t, const char*> modernMoveButtonOptions = {
-    { BTN_A, "A" },
-    { BTN_B, "B" },
-    { BTN_L, "L" },
+    { BTN_A, "A" }, { BTN_B, "B" }, { BTN_L, "L" }, { BTN_CUSTOM_X, "X" }, { BTN_CUSTOM_Y, "Y" },
 };
 
 static const std::map<int32_t, const char*> bombchuBowlingFirstPrizeOptions = {
@@ -2225,14 +2223,14 @@ void SohMenu::AddMenuEnhancements() {
         .CVar(CVAR_ENHANCEMENT("ModernJumpButton"))
         .Options(ComboboxOptions()
                      .ComboMap(modernMoveButtonOptions)
-                     .DefaultIndex(BTN_A)
-                     .Tooltip("Grounded free jump when no context action is available."));
-    AddWidget(path, "Modern Dash Button", WIDGET_CVAR_COMBOBOX)
-        .CVar(CVAR_ENHANCEMENT("ModernDashButton"))
+                     .DefaultIndex(BTN_CUSTOM_Y)
+                     .Tooltip("Press while grounded to jump when no context action is available."));
+    AddWidget(path, "Modern Sprint Button", WIDGET_CVAR_COMBOBOX)
+        .CVar(CVAR_ENHANCEMENT("ModernSprintButton"))
         .Options(ComboboxOptions()
                      .ComboMap(modernMoveButtonOptions)
-                     .DefaultIndex(BTN_L)
-                     .Tooltip("Dash while grounded and moving; the dash has a brief cooldown."));
+                     .DefaultIndex(BTN_CUSTOM_X)
+                     .Tooltip("Hold while moving on the ground to sprint; this is not a burst dash."));
 }
 
 } // namespace SohGui

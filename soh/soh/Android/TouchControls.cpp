@@ -43,6 +43,8 @@ enum class Control {
     Analog,
     A,
     B,
+    X,
+    Y,
     Z,
     Start,
     L,
@@ -440,6 +442,10 @@ Layout MakeDefaultLayout(ImVec2 size) {
                         IM_COL32(48, 155, 90, 170) },
           ButtonVisual{ "b", Control::B, "B", ImVec2(size.x * 0.72f, size.y * 0.87f), buttonRadius,
                         IM_COL32(59, 101, 184, 170) },
+          ButtonVisual{ "x", Control::X, "X", ImVec2(size.x * 0.86f, size.y * 0.63f), buttonRadius * 0.92f,
+                        IM_COL32(81, 113, 198, 175) },
+          ButtonVisual{ "y", Control::Y, "Y", ImVec2(size.x * 0.72f, size.y * 0.77f), buttonRadius * 0.92f,
+                        IM_COL32(184, 132, 61, 175) },
           ButtonVisual{ "z", Control::Z, "Z", ImVec2(size.x * 0.59f, size.y * 0.67f), buttonRadius * 0.92f,
                         IM_COL32(154, 83, 71, 170) },
           ButtonVisual{ "start", Control::Start, "START", ImVec2(size.x * 0.49f, size.y * 0.92f), buttonRadius * 0.78f,
@@ -574,6 +580,12 @@ void AddMappedKey(std::set<Ship::KbScancode>& keys, const ButtonVisual& button, 
             break;
         case Control::B:
             keys.insert(Ship::LUS_KB_C);
+            break;
+        case Control::X:
+            keys.insert(Ship::LUS_KB_V);
+            break;
+        case Control::Y:
+            keys.insert(Ship::LUS_KB_Y);
             break;
         case Control::Z:
             keys.insert(Ship::LUS_KB_Z);

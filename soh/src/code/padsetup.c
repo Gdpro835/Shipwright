@@ -1,5 +1,7 @@
 #include "global.h"
 
+extern void Soh_EnsureModernButtonMappings(void);
+
 s32 PadSetup_Init(OSMesgQueue* mq, u8* outMask, OSContStatus* status) {
     s32 ret;
     s32 i;
@@ -9,6 +11,7 @@ s32 PadSetup_Init(OSMesgQueue* mq, u8* outMask, OSContStatus* status) {
     if (ret != 0) {
         return ret;
     }
+    Soh_EnsureModernButtonMappings();
     if (*outMask == 0xFF) {
         if (osContStartQuery(mq) != 0) {
             return 1;
