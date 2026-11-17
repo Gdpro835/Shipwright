@@ -2224,7 +2224,7 @@ void SohMenu::AddMenuEnhancements() {
         .Options(ComboboxOptions()
                      .ComboMap(modernMoveButtonOptions)
                      .DefaultIndex(BTN_CUSTOM_Y)
-                     .Tooltip("Press while grounded to jump when no context action is available."));
+                     .Tooltip("Press while grounded to jump, even when a context action is available."));
     AddWidget(path, "Modern Sprint Button", WIDGET_CVAR_COMBOBOX)
         .CVar(CVAR_ENHANCEMENT("ModernSprintButton"))
         .Options(ComboboxOptions()

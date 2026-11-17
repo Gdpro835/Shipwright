@@ -4977,15 +4977,13 @@ static s32 Player_TryModernMovesetAction(PlayState* play, Player* this) {
         PLAYER_STATE1_GETTING_ITEM | PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_IN_WATER | PLAYER_STATE1_IN_ITEM_CS |
         PLAYER_STATE1_IN_CUTSCENE | PLAYER_STATE1_FIRST_PERSON | PLAYER_STATE1_ON_HORSE |
         PLAYER_STATE1_HANGING_OFF_LEDGE | PLAYER_STATE1_CLIMBING_LEDGE | PLAYER_STATE1_CLIMBING_LADDER;
+    /* Nearby context prompts must not suppress a jump on its own dedicated button. */
     const u32 blockedStateFlags2 =
         PLAYER_STATE2_PAUSE_MOST_UPDATING | PLAYER_STATE2_UNDERWATER | PLAYER_STATE2_GRABBED_BY_ENEMY |
-        PLAYER_STATE2_STATIONARY_LADDER | PLAYER_STATE2_FROZEN | PLAYER_STATE2_DO_ACTION_GRAB |
-        PLAYER_STATE2_CAN_ACCEPT_TALK_OFFER | PLAYER_STATE2_DO_ACTION_CLIMB | PLAYER_STATE2_DO_ACTION_ENTER |
-        PLAYER_STATE2_DO_ACTION_DOWN | PLAYER_STATE2_NEAR_OCARINA_ACTOR | PLAYER_STATE2_PLAY_FOR_ACTOR |
+        PLAYER_STATE2_STATIONARY_LADDER | PLAYER_STATE2_FROZEN | PLAYER_STATE2_PLAY_FOR_ACTOR |
         PLAYER_STATE2_ATTEMPT_PLAY_FOR_ACTOR | PLAYER_STATE2_OCARINA_PLAYING | PLAYER_STATE2_CRAWLING;
     if (!input || sUpperBodyIsBusy || !MovesetManager_IsModern(this) || (this->stateFlags1 & blockedStateFlags1) ||
-        (this->stateFlags2 & blockedStateFlags2) || this->csAction != 0 || this->talkActor != NULL ||
-        this->interactRangeActor != NULL || this->rideActor != NULL || this->doorType != PLAYER_DOORTYPE_NONE ||
+        (this->stateFlags2 & blockedStateFlags2) || this->csAction != 0 ||
         !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) || this->currentBoots == PLAYER_BOOTS_IRON)
         return 0;
 
