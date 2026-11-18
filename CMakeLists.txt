@@ -379,8 +379,8 @@ if(NOT ANDROID)
     file(GLOB_RECURSE SOH_O2R_SHADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/libultraship/src/fast/shaders/*)
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/soh/soh.o2r
-        # Copy LUS default shaders into assets/custom, then make the GLES shader's
-        # default precision explicit before packing it for Android.
+        # Copy LUS default shaders into assets/custom, then patch GLES precision
+        # and the unreliable OpenGL WRAP math before packing the runtime shader.
         COMMAND ${CMAKE_COMMAND} -E rm -r -f ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom/shaders/
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/libultraship/src/fast/shaders/ ${CMAKE_CURRENT_SOURCE_DIR}/soh/assets/custom/shaders/
         COMMAND ${CMAKE_COMMAND}
