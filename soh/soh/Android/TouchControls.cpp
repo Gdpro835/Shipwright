@@ -31,6 +31,12 @@
 #include "soh/SohGui/UIWidgets.hpp"
 #include "soh/cvar_prefixes.h"
 
+namespace {
+constexpr uint32_t kTouchStickActiveFlag = 1u << 16;
+std::atomic<uint32_t> gModernTouchStickState{ 0 };
+std::atomic<bool> gModernMovesetActive{ false };
+} // namespace
+
 namespace SohGui {
 extern std::shared_ptr<SohMenu> mSohMenu;
 } // namespace SohGui
@@ -406,12 +412,14 @@ int SDLCALL OnSdlEvent(void*, SDL_Event* event) {
             if (event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
                 gTouches.clear();
                 gResetTouchesPending = true;
+                ::gModernTouchStickState.store(0, std::memory_order_relaxed);
             }
             break;
         case SDL_APP_WILLENTERBACKGROUND:
         case SDL_APP_TERMINATING:
             gTouches.clear();
             gResetTouchesPending = true;
+            ::gModernTouchStickState.store(0, std::memory_order_relaxed);
             break;
         default:
             break;
@@ -552,6 +560,26 @@ const ButtonVisual* HitTest(ImVec2 position, const Layout& layout, bool controls
     const float analogHitRadius = layout.analog.radius * 1.42f;
     return DistanceSquared(position, layout.analog.center) <= analogHitRadius * analogHitRadius ? &layout.analog
                                                                                                 : nullptr;
+}
+
+void GetAnalogStickAxes(ImVec2 position, const ButtonVisual& analog, int8_t* stickX, int8_t* stickY) {
+    const float dx = position.x - analog.center.x;
+    const float dy = position.y - analog.center.y;
+    const float distance = std::sqrt(dx * dx + dy * dy);
+    const float deadZone = analog.radius * 0.27f;
+    const float maxDistance = analog.radius * 0.78f;
+
+    *stickX = 0;
+    *stickY = 0;
+    if (distance <= deadZone || maxDistance <= deadZone) {
+        return;
+    }
+
+    const float boundedDistance = std::min(distance, maxDistance);
+    const float strength = std::clamp((boundedDistance - deadZone) / (maxDistance - deadZone), 0.0f, 1.0f);
+    const float magnitude = strength * 60.0f;
+    *stickX = static_cast<int8_t>(std::lround((dx / distance) * magnitude));
+    *stickY = static_cast<int8_t>(std::lround((-dy / distance) * magnitude));
 }
 
 void AddAnalogKeys(std::set<Ship::KbScancode>& keys, ImVec2 position, const ButtonVisual& analog) {
@@ -910,6 +938,8 @@ static RegisterMenuInitFunc touchControlsMenuInit(RegisterTouchControlsMenu);
 } // namespace
 
 void Initialize() {
+    ::gModernTouchStickState.store(0, std::memory_order_relaxed);
+    ::gModernMovesetActive.store(false, std::memory_order_relaxed);
     SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
     SDL_DelEventWatch(OnSdlEvent, nullptr);
     SDL_AddEventWatch(OnSdlEvent, nullptr);
@@ -936,11 +966,13 @@ void RequestMenuToggle() {
 
 void Draw() {
     if (!gInitialized || ImGui::GetCurrentContext() == nullptr) {
+        ::gModernTouchStickState.store(0, std::memory_order_relaxed);
         return;
     }
 
     const ImVec2 displaySize = ImGui::GetIO().DisplaySize;
     if (displaySize.x <= 0.0f || displaySize.y <= 0.0f) {
+        ::gModernTouchStickState.store(0, std::memory_order_relaxed);
         return;
     }
     std::vector<std::pair<TouchId, FingerState>> fingers;
@@ -965,6 +997,7 @@ void Draw() {
 
     auto context = Ship::Context::GetRawInstance();
     if (context == nullptr || context->GetWindow() == nullptr || context->GetWindow()->GetGui() == nullptr) {
+        ::gModernTouchStickState.store(0, std::memory_order_relaxed);
         return;
     }
     const auto gui = context->GetWindow()->GetGui();
@@ -983,6 +1016,7 @@ void Draw() {
     std::set<std::string> activeButtons;
     bool analogActive = false;
     ImVec2 analogPosition = layout.analog.center;
+    const bool modernMovesetActive = ::gModernMovesetActive.load(std::memory_order_relaxed);
 
     // Keep a synthesized Escape press across frames when a popup needs dismissing.
     if (gEscapeReleasePending) {
@@ -1022,7 +1056,9 @@ void Draw() {
             finger.down ? position : ImVec2(finger.startX * displaySize.x, finger.startY * displaySize.y);
         const bool visibleControl = gControlsVisible || control == Control::Menu || control == Control::Toggle;
         if (!uiOpen && visibleControl && (finger.down || finger.justPressed)) {
-            AddMappedKey(desiredKeys, *button, mappedPosition, layout);
+            if (control != Control::Analog || !modernMovesetActive) {
+                AddMappedKey(desiredKeys, *button, mappedPosition, layout);
+            }
             activeButtons.insert(button->id);
             if (control == Control::Analog) {
                 analogActive = true;
@@ -1058,6 +1094,17 @@ void Draw() {
         desiredKeys.clear();
         activeButtons.clear();
         analogActive = false;
+    }
+
+    if (analogActive) {
+        int8_t stickX = 0;
+        int8_t stickY = 0;
+        GetAnalogStickAxes(analogPosition, layout.analog, &stickX, &stickY);
+        const uint32_t encodedX = static_cast<uint32_t>(static_cast<int32_t>(stickX) + 128);
+        const uint32_t encodedY = static_cast<uint32_t>(static_cast<int32_t>(stickY) + 128);
+        ::gModernTouchStickState.store(kTouchStickActiveFlag | (encodedX << 8) | encodedY, std::memory_order_relaxed);
+    } else {
+        ::gModernTouchStickState.store(0, std::memory_order_relaxed);
     }
 
     const auto controlDeck = context->GetControlDeck();
@@ -1123,6 +1170,8 @@ TouchControlsWindow::TouchControlsWindow() : Ship::GuiWindow("", true, "AndroidT
 void TouchControlsWindow::Draw() {
     if (IsVisible()) {
         TouchControls::Draw();
+    } else {
+        ::gModernTouchStickState.store(0, std::memory_order_relaxed);
     }
 }
 
@@ -1135,5 +1184,24 @@ void TouchControlsWindow::UpdateElement() {
 void TouchControlsWindow::DrawElement() {
 }
 } // namespace SohAndroid
+
+extern "C" int32_t SohAndroid_TouchControls_GetModernStick(int8_t* stickX, int8_t* stickY) {
+    if (stickX == nullptr || stickY == nullptr) {
+        return 0;
+    }
+
+    const uint32_t state = gModernTouchStickState.load(std::memory_order_relaxed);
+    if ((state & kTouchStickActiveFlag) == 0) {
+        return 0;
+    }
+
+    *stickX = static_cast<int8_t>(static_cast<int32_t>((state >> 8) & 0xFF) - 128);
+    *stickY = static_cast<int8_t>(static_cast<int32_t>(state & 0xFF) - 128);
+    return 1;
+}
+
+extern "C" void SohAndroid_TouchControls_SetModernMovesetActive(int32_t isModern) {
+    gModernMovesetActive.store(isModern != 0, std::memory_order_relaxed);
+}
 
 #endif // __ANDROID__

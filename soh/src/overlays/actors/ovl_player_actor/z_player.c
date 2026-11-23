@@ -31,6 +31,9 @@
 #include "soh/OTRGlobals.h"
 #include "soh/Enhancements/savestate_serialize.h"
 #include "soh/Enhancements/moveset/MovesetManager.h"
+#ifdef __ANDROID__
+#include "soh/Android/TouchControls.h"
+#endif
 
 #include <string.h>
 #include <stdlib.h>
@@ -530,6 +533,7 @@ static u32 sNoclipEnabled = false;
 static f32 sControlStickMagnitude = 0.0f;
 static s16 sControlStickAngle = 0;
 static s16 sControlStickWorldYaw = 0;
+static u32 sModernJumpButtonHeld = 0;
 static s32 sUpperBodyIsBusy = false; // see `Player_UpdateUpperBody`
 static s32 sFloorType = 0;
 static f32 sWaterSpeedFactor = 1.0f;    // Set to 0.5f in water, 1.0f otherwise. Influences different speed values.
@@ -2045,9 +2049,41 @@ void Player_AnimReplaceNormalPlayLoopAdjusted(PlayState* play, Player* this, Lin
 void Player_ProcessControlStick(PlayState* play, Player* this) {
     s8 spinAngle;
     s8 direction;
+    const s32 isModernMoveset = MovesetManager_IsModern(this);
 
     this->prevControlStickMagnitude = sControlStickMagnitude;
     this->prevControlStickAngle = sControlStickAngle;
+
+    if (isModernMoveset) {
+        const u32 jumpButton = CVarGetInteger(CVAR_ENHANCEMENT("ModernJumpButton"), BTN_CUSTOM_Y);
+        if (!(sControlInput->cur.button & jumpButton) || (sControlInput->rel.button & jumpButton)) {
+            sModernJumpButtonHeld &= ~jumpButton;
+        }
+    } else {
+        sModernJumpButtonHeld = 0;
+    }
+
+#ifdef __ANDROID__
+    SohAndroid_TouchControls_SetModernMovesetActive(isModernMoveset);
+    if (isModernMoveset) {
+        s8 touchStickX;
+        s8 touchStickY;
+        if (SohAndroid_TouchControls_GetModernStick(&touchStickX, &touchStickY)) {
+            f32 stickX = (f32)sControlInput->rel.stick_x + touchStickX;
+            f32 stickY = (f32)sControlInput->rel.stick_y + touchStickY;
+            f32 stickMagnitude = sqrtf(SQ(stickX) + SQ(stickY));
+
+            if (stickMagnitude > 60.0f) {
+                f32 scale = 60.0f / stickMagnitude;
+                stickX *= scale;
+                stickY *= scale;
+            }
+
+            sControlInput->rel.stick_x = (s8)CLAMP((s32)roundf(stickX), -60, 60);
+            sControlInput->rel.stick_y = (s8)CLAMP((s32)roundf(stickY), -60, 60);
+        }
+    }
+#endif
 
     func_80077D10(&sControlStickMagnitude, &sControlStickAngle, sControlInput);
 
@@ -4065,7 +4101,7 @@ typedef enum ActionHandlerIndex {
     /* 14 */ PLAYER_ACTION_HANDLER_MOVESET
 } ActionHandlerIndex;
 
-/* Keep Modern after context handlers, ahead of vanilla button actions. */
+/* Keep action-list fallbacks in place; Modern jumps are preflighted in Player_TryActionHandlerList. */
 static s8 sActionHandlerList1[] = {
     PLAYER_ACTION_HANDLER_13, PLAYER_ACTION_HANDLER_2,       PLAYER_ACTION_HANDLER_TALK,
     PLAYER_ACTION_HANDLER_9,  PLAYER_ACTION_HANDLER_MOVESET, PLAYER_ACTION_HANDLER_10,
@@ -4151,6 +4187,7 @@ s32 Player_ActionHandler_11(Player* this, PlayState* play);
 s32 Player_ActionHandler_12(Player* this, PlayState* play);
 s32 Player_ActionHandler_13(Player* this, PlayState* play);
 s32 Player_ActionHandler_Moveset(Player* this, PlayState* play);
+static s32 Player_TryModernMovesetAction(PlayState* play, Player* this);
 void func_8083C858(Player* this, PlayState* play);
 
 static s32 (*sActionHandlerFuncs[])(Player* this, PlayState* play) = {
@@ -4210,6 +4247,11 @@ s32 Player_TryActionHandlerList(PlayState* play, Player* this, s8* actionHandler
 
         if (!(this->stateFlags1 & PLAYER_STATE1_START_CHANGING_HELD_ITEM) &&
             (Player_UpperAction_ChangeHeldItem != this->upperActionFunc)) {
+            /* Give an eligible Modern jump its dedicated-button priority over contextual actions. */
+            if (Player_TryModernMovesetAction(play, this)) {
+                return true;
+            }
+
             // Process all entries in the Action Handler List with a positive index
             while (*actionHandlerList >= 0) {
                 if (sActionHandlerFuncs[*actionHandlerList](this, play)) {
@@ -4982,14 +5024,26 @@ static s32 Player_TryModernMovesetAction(PlayState* play, Player* this) {
         PLAYER_STATE2_PAUSE_MOST_UPDATING | PLAYER_STATE2_UNDERWATER | PLAYER_STATE2_GRABBED_BY_ENEMY |
         PLAYER_STATE2_STATIONARY_LADDER | PLAYER_STATE2_FROZEN | PLAYER_STATE2_PLAY_FOR_ACTOR |
         PLAYER_STATE2_ATTEMPT_PLAY_FOR_ACTOR | PLAYER_STATE2_OCARINA_PLAYING | PLAYER_STATE2_CRAWLING;
-    if (!input || sUpperBodyIsBusy || !MovesetManager_IsModern(this) || (this->stateFlags1 & blockedStateFlags1) ||
-        (this->stateFlags2 & blockedStateFlags2) || this->csAction != 0 ||
-        !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) || this->currentBoots == PLAYER_BOOTS_IRON)
+
+    if (!input || !MovesetManager_IsModern(this)) {
         return 0;
+    }
 
     const s32 jumpButton = CVarGetInteger(CVAR_ENHANCEMENT("ModernJumpButton"), BTN_CUSTOM_Y);
-    if (Player_IsSupportedMovesetButton(jumpButton) && CHECK_BTN_ALL(input->press.button, jumpButton) &&
-        play->roomCtx.curRoom.behaviorType1 != ROOM_BEHAVIOR_TYPE1_2 && sFloorType != 7 &&
+    if (!Player_IsSupportedMovesetButton(jumpButton) || !CHECK_BTN_ALL(input->press.button, jumpButton) ||
+        CHECK_BTN_ALL(sModernJumpButtonHeld, jumpButton)) {
+        return 0;
+    }
+    /* A held button may span a landing or several action-list passes; only its first press may jump. */
+    sModernJumpButtonHeld |= jumpButton;
+
+    if (sUpperBodyIsBusy || (this->stateFlags1 & blockedStateFlags1) || (this->stateFlags2 & blockedStateFlags2) ||
+        this->csAction != 0 || !(this->actor.bgCheckFlags & BGCHECKFLAG_GROUND) ||
+        this->currentBoots == PLAYER_BOOTS_IRON) {
+        return 0;
+    }
+
+    if (play->roomCtx.curRoom.behaviorType1 != ROOM_BEHAVIOR_TYPE1_2 && sFloorType != 7 &&
         SurfaceType_GetFloorEffect(&play->colCtx, this->actor.floorPoly, this->actor.floorBgId) != FLOOR_EFFECT_1) {
         f32 speed = 0.0f;
         s16 yaw = this->yaw;
@@ -16702,6 +16756,7 @@ void Player_StartTalking(PlayState* play, Actor* actor) {
     F(sControlStickMagnitude)           \
     F(sControlStickAngle)               \
     F(sControlStickWorldYaw)            \
+    F(sModernJumpButtonHeld)            \
     F(sUpperBodyIsBusy)                 \
     F(sFloorType)                       \
     F(sWaterSpeedFactor)                \
