@@ -254,12 +254,14 @@ void UpdateModFiles(bool init = false, bool reset = false) {
                 tempMods.clear();
             }
             if (init) {
-                std::vector<std::string> enabledTemp(enabledModFiles);
-                for (std::string mod : enabledTemp) {
+                // ArchiveManager gives the most recently mounted archive highest priority.
+                // Mount bottom-to-top so the list's documented top-to-bottom priority is honored.
+                for (size_t i = enabledModFiles.size(); i > 0; --i) {
+                    const std::string& mod = enabledModFiles[i - 1];
                     if (filePaths.contains(mod)) {
                         GetArchiveManager()->AddArchive(filePaths.at(mod).generic_string());
                     } else {
-                        enabledModFiles.erase(std::find(enabledModFiles.begin(), enabledModFiles.end(), mod));
+                        enabledModFiles.erase(enabledModFiles.begin() + (i - 1));
                         changed = true;
                     }
                 }
